@@ -1,26 +1,3 @@
-# fvtt-module-creator
-fvtt-module-creator
-
-# Instrucciones
-
-Instalar R
-
-[The R Project for Statistical Computing](https://www.r-project.org/ "R Project")
-
-(Opcional) Instalar una GUI para R, por ejemplo, esta:
-
-[RStudio](https://www.rstudio.com/ "RStudio")
-
-En R, primero instalamos algunos paquetes que son necesarios:
-
-```
-install.packages("jsonlite")
-install.packages("tidyverse")
-```
-
-Se descarga el respositorio a un directorio del disco duro y desde ahí podéis ejecutar la función *module.creator* con los parámetros necesarios, se ha incluido un ejemplo de creación de módulo en el repositorio (fvtt-module-creator - ejemplo.R), su contenido es este:
-
-```
 library(jsonlite)
 library(tidyverse)
 
@@ -41,4 +18,3 @@ module.creator(world = "mis-compendios", # nombre de la carpeta del mundo de ori
                clean.descriptions=F, # si se quieren borrar las descripciones de todos los objetos antes de copiarlos
                remove.compendiums = c("spells", "creatures", "tables") # si queréis evitar que algún compendio se copie del mundo al módulo
 )
-```
