@@ -1,5 +1,5 @@
 # fvtt-module-creator
-fvtt-module-creator
+fvtt-module-creator v1.1
 
 # Instrucciones
 
@@ -19,6 +19,10 @@ install.packages("tidyverse")
 ```
 
 Se descarga el respositorio a un directorio del disco duro y desde ahí podéis ejecutar la función *module.creator* con los parámetros necesarios, se ha incluido un ejemplo de creación de módulo en el repositorio (fvtt-module-creator - ejemplo.R), su contenido es este:
+
+# Importante
+
+La especificación de directorios ha de hacerse usando como separador /, y no \, de modo que C:\Users\Manolo es incorrecto, lo correcto es C:/Users/Manolo
 
 ```
 library(jsonlite)

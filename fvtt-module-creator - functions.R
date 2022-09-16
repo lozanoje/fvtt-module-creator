@@ -1,3 +1,6 @@
+# module.creator
+# v1.1
+
 replace.in.file <- function(input, output, search, replace){
   x <- readLines(input, encoding="UTF-8", warn=FALSE)
   y <- gsub( search, replace, x )
@@ -142,36 +145,22 @@ replace.db.references <- function(i.db, i.dbindex){
   indices
 }
 
-# i.dbindex <- "ficherosdb/habilidades.db"
-# i.db <- "ficherosdb/ocupaciones.db"
-# i.db.dir <- "ficherosdb"
-
 replace.all.db.references <- function(i.db.dir, i.dbindex){
   temp1 <- data.frame(dbf=list.files(i.db.dir, "*.db", full.names = T), stringsAsFactors = F) %>%
     filter(dbf!=i.dbindex)
   for (i in 1:NROW(temp1)) replace.db.references(temp1$dbf[i], i.dbindex)
 }
 
-# world = "es-llc-compendios"
-# module = "compendios-llc-es"
-# title = "[ES] Compendios para La Llamada de Cthulhu 7a"
-# description = "Compendios para La Llamada de Cthulhu 7a"
-# author = "V,G,A"
-# copy = c("icons", "pdfs", "images/animales","images/deidades","images/horrores-tradicionales","images/monstruos-de-los-mitos","images/monstruos-pulp", "images/resumenes", "images/chaosium")
-# foundrydata = "D:/RPGdata/FoundryVTT"
-# compendiumfolders = "configcompendiumfolders.txt"
-# clean.descriptions=F
-# remove.compendiums = c("spells", "creatures", "tables", "macros", "ocupaciones-reglasinicio", "armas-reglasinicio", 
-#                        "monstruos-de-los-mitospruebas","monstruos-de-los-mitospruebasarmas",
-#                        "monstruos-de-los-mitospruebashabilidades","plantillas-pj")
-# remove.compendiums = NA
-
 module.creator <- function(world, module, title, description, author, copy,
-                           foundrydata = "C:/Users/Jose Lozano/AppData/Local/FoundryVTT", foundryversion = 9,
+                           foundrydata = NA, foundryversion = 9,
                            compendiumfolders=NA, clean.descriptions=F, remove.compendiums = NA
-                           # , remove.folders = NA
                            ){
   
+	if (is.null(foundrydata)) stop("Directorio foundrydata incorrecto\n")
+	if (is.na(foundrydata)) stop("Directorio foundrydata incorrecto\n")
+	if (length(foundrydata)!=1) stop("Directorio foundrydata incorrecto\n")
+	if (!dir.exists(foundrydata)) stop("Directorio foundrydata no encontrado\n")
+		
   mdir <- file.path(foundrydata,"Data/modules",module)
   cat("Creando modulo en ", mdir, "\n")
   
