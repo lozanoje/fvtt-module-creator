@@ -1,5 +1,5 @@
 # module.creator
-# v1.1
+# v1.2
 
 replace.in.file <- function(input, output, search, replace){
   x <- readLines(input, encoding="UTF-8", warn=FALSE)
@@ -151,7 +151,7 @@ replace.all.db.references <- function(i.db.dir, i.dbindex){
   for (i in 1:NROW(temp1)) replace.db.references(temp1$dbf[i], i.dbindex)
 }
 
-module.creator <- function(world, module, title, description, author, copy,
+module.creator <- function(world, module, title, description="", author="", copy=NA,
                            foundrydata = NA, foundryversion = 9,
                            compendiumfolders=NA, clean.descriptions=F, remove.compendiums = NA
                            ){
@@ -169,7 +169,7 @@ module.creator <- function(world, module, title, description, author, copy,
   
   # additional directories
   
-  for (d in copy){
+  if (!is.na(copy)) for (d in copy){
     dir.create(file.path(mdir, d), recursive = T)
     file.copy(file.path(foundrydata,"Data/worlds",world,d), dirname(file.path(foundrydata,"Data/modules",module, d)), recursive=T)
   }

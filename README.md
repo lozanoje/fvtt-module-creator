@@ -1,5 +1,5 @@
 # fvtt-module-creator
-fvtt-module-creator v1.1
+fvtt-module-creator v1.2
 
 # Instrucciones
 
