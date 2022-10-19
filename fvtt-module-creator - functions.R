@@ -9,35 +9,54 @@ replace.in.file <- function(input, output, search, replace){
   close(con)
 }
 
-clean.db <- function(i.db){
+clean.db <- function(i.db, i.system){
   file.t <- tempfile()
   json_data <- lapply(readLines(i.db), fromJSON)
-  json_file <- character()
-  for (i in 1:length(json_data)){
-    # Descripciones generaes
-    if ("value" %in% names(json_data[[i]]$data$description)) json_data[[i]]$data$description$value <- ""
-    if ("value" %in% names(json_data[[i]]$data$skills$data$description)) json_data[[i]]$data$skills$data$description$value <- ""
-    # Grupos de opciones
-    if ("groups" %in% names(json_data[[i]]$data)){
-      temp1 <- json_data[[i]]$data$groups$skills
-      for (j in 1:length(temp1)) if ("value" %in% names(json_data[[i]]$data$groups$skills[[j]]$data$description)) json_data[[i]]$data$groups$skills[[j]]$data$description$value <- ""
+  json_file <- character()  
+  if (i.system=="rqg"){
+    cat("Sistema RQG\n")
+    for (i in 1:length(json_data)){
+      if ("description" %in% names(json_data[[i]]$data)) json_data[[i]]$data$description <- ""
+      if ("descriptionRqidLink" %in% names(json_data[[i]]$data)){
+        json_data[[i]]$data$descriptionRqidLink$rqid <- ""
+        json_data[[i]]$data$descriptionRqidLink$name <- ""
+        json_data[[i]]$data$descriptionRqidLink$documentType <- ""
+      }
+      write_json(json_data[[i]], file.t, encoding="UTF-8", null="null", auto_unbox=T)
+      json_file.t <- gsub( "[null]", "null", readLines(file.t, encoding="UTF-8"), fixed=T)
+      json_file <- c(json_file, json_file.t)
     }
-    if ("items" %in% names(json_data[[i]]$data)){
-      if ("value" %in% names(json_data[[i]]$data$items$data$description)) json_data[[i]]$data$items$data$description$value <- ""
-    }
-    if ("items" %in% names(json_data[[i]])){
-      if ("value" %in% names(json_data[[i]]$items$data$description)) json_data[[i]]$items$data$description$value <- ""
-    }
-    write_json(json_data[[i]], file.t, encoding="UTF-8", null="null", auto_unbox=T)
-    json_file.t <- gsub( "[null]", "null", readLines(file.t, encoding="UTF-8"), fixed=T)
-    json_file <- c(json_file, json_file.t)
-  } 
+  }else if(i.system=="CoC7"){
+    cat("Sistema CoC\n")
+    for (i in 1:length(json_data)){
+      # Descripciones generaes
+      if ("value" %in% names(json_data[[i]]$data$description)) json_data[[i]]$data$description$value <- ""
+      if ("value" %in% names(json_data[[i]]$data$skills$data$description)) json_data[[i]]$data$skills$data$description$value <- ""
+      # Grupos de opciones
+      if ("groups" %in% names(json_data[[i]]$data)){
+        temp1 <- json_data[[i]]$data$groups$skills
+        for (j in 1:length(temp1)) if ("value" %in% names(json_data[[i]]$data$groups$skills[[j]]$data$description)) json_data[[i]]$data$groups$skills[[j]]$data$description$value <- ""
+      }
+      if ("items" %in% names(json_data[[i]]$data)){
+        if ("value" %in% names(json_data[[i]]$data$items$data$description)) json_data[[i]]$data$items$data$description$value <- ""
+      }
+      if ("items" %in% names(json_data[[i]])){
+        if ("value" %in% names(json_data[[i]]$items$data$description)) json_data[[i]]$items$data$description$value <- ""
+      }
+      write_json(json_data[[i]], file.t, encoding="UTF-8", null="null", auto_unbox=T)
+      json_file.t <- gsub( "[null]", "null", readLines(file.t, encoding="UTF-8"), fixed=T)
+      json_file <- c(json_file, json_file.t)
+    } 
+    
+  }else{
+    cat("Sistema no soportado\n")
+  }
   writeLines(json_file, i.db)
 }
 
-clean.all.db <- function(i.path){
+clean.all.db <- function(i.path, i.system){
   files <- list.files(i.path, pattern="*.db", full.names = T)
-  for (filesi in files) clean.db(filesi)
+  for (filesi in files) clean.db(filesi, i.system)
 }
 
 replace.db.references <- function(i.db, i.dbindex){
@@ -169,7 +188,7 @@ module.creator <- function(world, module, title, description="", author="", copy
   
   # additional directories
   
-  if (!is.na(copy)) for (d in copy){
+  if (!any(is.na(copy))) for (d in copy){
     dir.create(file.path(mdir, d), recursive = T)
     file.copy(file.path(foundrydata,"Data/worlds",world,d), dirname(file.path(foundrydata,"Data/modules",module, d)), recursive=T)
   }
@@ -339,20 +358,27 @@ module.creator <- function(world, module, title, description="", author="", copy
                            pathToFolder=direc, stringsAsFactors = F))
   }
 
-  # directorios.no.vacios <- listado.directorios %>%
-  #   filter(comli>0 & com>0 & directorio!="") %>%
-  #   distinct(directorio) %>%
-  #   pull(directorio)
+  # Eliminar carpetas vacias
+  # directorios.contenedores <- listado.directorios %>%
+  #   filter(pathToFolder!="") %>%
+  #   distinct(pathToFolder) %>%
+  #   left_join(listado.directorios, by=c("pathToFolder"="name"))
+  # 
+  # directorios.borrar <- listado.directorios %>%
+  #   filter(!((comli>0 & com>0) | name %in% directorios.contenedores$pathToFolder))
   
-  directorios.contenedores <- listado.directorios %>%
-    filter(pathToFolder!="") %>%
-    distinct(pathToFolder) %>%
-    pull(pathToFolder)
+  temp1 <- listado.directorios %>%
+    filter(comli>0 | com>0)
+  
+  temp2 <- listado.directorios %>%
+    filter(name %in% temp1$parent)
+  
+  directorios.mantener <- temp1 %>%
+    bind_rows(temp2)
   
   directorios.borrar <- listado.directorios %>%
-    filter(!((comli>0 & com>0) | name %in% directorios.contenedores))
+    filter(!(name %in% directorios.mantener$name))
   
-  # Eliminar carpetas vacias
   if (NROW(directorios.borrar)>0) for (i in 1:NROW(directorios.borrar)) cf_data[[directorios.borrar$name[i]]] <- NULL
 
   replace.in.file("H:/R/fvtt-module-creator/fvtt-module-creator.js", file.3, "@~@" ,toJSON(cf_data, null="null", auto_unbox = T))
@@ -360,6 +386,6 @@ module.creator <- function(world, module, title, description="", author="", copy
   if (clean.descriptions){
     packs.path <- file.path(foundrydata,"Data/modules",module,"packs")
     cat("Removing descriptions from: ", packs.path,"\n")
-    clean.all.db(packs.path)
+    clean.all.db(packs.path, json_data$system)
   }
 }
