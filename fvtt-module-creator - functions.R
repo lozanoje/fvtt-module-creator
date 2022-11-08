@@ -1,5 +1,5 @@
 # module.creator
-# v1.2
+# v1.3
 
 replace.in.file <- function(input, output, search, replace){
   x <- readLines(input, encoding="UTF-8", warn=FALSE)
@@ -78,7 +78,7 @@ replace.db.references <- function(i.db, i.dbindex){
     arrange(name, desc(ene)) %>%
     slice(1) %>%
     ungroup()
-
+  
   for (i in 1:length(json_data)){
     cat("\tClave: ", json_data[[i]]$name,"\t")
     # Formato creacion-pj, esta en items
@@ -172,14 +172,15 @@ replace.all.db.references <- function(i.db.dir, i.dbindex){
 
 module.creator <- function(world, module, title, description="", author="", copy=NA,
                            foundrydata = NA, foundryversion = 9,
-                           compendiumfolders=NA, clean.descriptions=F, remove.compendiums = NA
-                           ){
+                           compendiumfolders=NA, clean.descriptions=F, remove.compendiums = NA,
+                           i.js = "H:/R/fvtt-module-creator/fvtt-module-creator.js"
+){
   
-	if (is.null(foundrydata)) stop("Directorio foundrydata incorrecto\n")
-	if (is.na(foundrydata)) stop("Directorio foundrydata incorrecto\n")
-	if (length(foundrydata)!=1) stop("Directorio foundrydata incorrecto\n")
-	if (!dir.exists(foundrydata)) stop("Directorio foundrydata no encontrado\n")
-		
+  if (is.null(foundrydata)) stop("Directorio foundrydata incorrecto\n")
+  if (is.na(foundrydata)) stop("Directorio foundrydata incorrecto\n")
+  if (length(foundrydata)!=1) stop("Directorio foundrydata incorrecto\n")
+  if (!dir.exists(foundrydata)) stop("Directorio foundrydata no encontrado\n")
+  
   mdir <- file.path(foundrydata,"Data/modules",module)
   cat("Creando modulo en ", mdir, "\n")
   
@@ -225,23 +226,28 @@ module.creator <- function(world, module, title, description="", author="", copy
   if (is.null(json_data$id)) d.core=9 else d.core=10
   
   cat("Core compatibility: ", d.core, "\n")
-
+  
   if (d.core<10){
     json_data$name <- module
     json_data$author <- author
     json_data$minimumCoreVersion <- str_extract(json_data$coreVersion, "[^\\.]")
     json_data$compatibleCoreVersion <- json_data$coreVersion
+    json_data$dependencies <- list(list(name = "compendium-folders", 
+                                        manifest="https://raw.githubusercontent.com/earlSt1/vtt-compendium-folders/master/module.json", 
+                                        version="1.0.5"))
   }else{
     json_data$id <- module
     json_data$authors[[1]] <- list(name=author, flags=NULL)
-    json_data$relationships[[1]] <- list(id="compendium-folders", type="module", compatibility=NULL)
-      json_data$relationships[[2]] <- list(id=json_data$system, type="system", compatibility=json_data$systemVersion)
+    json_data$relationships[[1]] <- list(list(id="compendium-folders", type="module", compatibility=NULL),
+                                      list(id="lib-wrapper", type="module", compatibility=NULL),
+                                      list(id="foundryvtt-es", type="module", compatibility=NULL))
+    json_data$relationships[[2]] <- list(id=json_data$system, type="system", compatibility=json_data$systemVersion)
     names(json_data$relationships) <- c("requires", "systems")
   }
   
   json_data$title <- title
   json_data$description <- description
-
+  
   packsnames <- character()
   for (i in 1:length(json_data$packs)){
     json_data$packs[[i]]$package <- module
@@ -265,17 +271,23 @@ module.creator <- function(world, module, title, description="", author="", copy
   
   if (is.na(compendiumfolders)){
     json_data$esmodules <- NULL
-    json_data$dependencies <- NULL
+    if (d.core<10){
+      json_data$dependencies <- NULL
+    }else{
+      json_data$relationships$requires <- NULL
+    }
   }else{
     config.compendiumfolders <- file.path(foundrydata,"Data/worlds",world, compendiumfolders)
     if (file.exists(config.compendiumfolders)){
       json_data$esmodules <- list(paste0(module,".js"))
-      json_data$dependencies <- list(list(name = "compendium-folders", 
-                                          manifest="https://raw.githubusercontent.com/earlSt1/vtt-compendium-folders/master/module.json", 
-                                          version="1.0.5"))
+      
     }else{
       json_data$esmodules <- NULL
-      json_data$dependencies <- NULL
+      if (d.core<10){
+        json_data$dependencies <- NULL
+      }else{
+        json_data$relationships$requires <- NULL
+      }
     }
   }
   
@@ -316,76 +328,78 @@ module.creator <- function(world, module, title, description="", author="", copy
   #   }
   # } 
   
-  cf_data <- fromJSON(config.compendiumfolders, simplifyVector = F)
-  
-  # correccion iconos
-  # cf_data[["default"]]$folderIcon <- NULL
-
-  configs <- names(cf_data)[grepl("cfolder_.*",names(cf_data))]
-  listado.directorios <- data.frame()
-  for (cfs in configs){
-    name = cfs
-    titulo = cf_data[[cfs]]$titleText
-    # quitar=ifelse(cf_data[[cfs]]$titleText %in% remove.folders,T,F)
+  if (!is.na(compendiumfolders)){
     
-    if (length(cf_data[[cfs]]$folderIcon)>0) cf_data[[cfs]]$folderIcon <- gsub(paste0("worlds/",world),paste0("modules/",module), cf_data[[cfs]]$folderIcon)
-    if (length(cf_data[[cfs]]$compendiumList)>0) for (i in length(cf_data[[cfs]]$compendiumList):1){
-      coname <- sub("[^\\.]*\\.(.*)","\\1",cf_data[[cfs]]$compendiumList[[i]])
-      if (coname %in% remove.compendiums){
-        cf_data[[cfs]]$compendiumList[[i]] <- NULL
-      }else{
-        cf_data[[cfs]]$compendiumList[[i]] <- gsub("world\\.",paste0(module,"\\."), cf_data[[cfs]]$compendiumList[[i]])
+    cf_data <- fromJSON(config.compendiumfolders, simplifyVector = F)
+    
+    # correccion iconos
+    # cf_data[["default"]]$folderIcon <- NULL
+    
+    configs <- names(cf_data)[grepl("cfolder_.*",names(cf_data))]
+    listado.directorios <- data.frame()
+    for (cfs in configs){
+      name = cfs
+      titulo = cf_data[[cfs]]$titleText
+      # quitar=ifelse(cf_data[[cfs]]$titleText %in% remove.folders,T,F)
+      
+      if (length(cf_data[[cfs]]$folderIcon)>0) cf_data[[cfs]]$folderIcon <- gsub(paste0("worlds/",world),paste0("modules/",module), cf_data[[cfs]]$folderIcon)
+      if (length(cf_data[[cfs]]$compendiumList)>0) for (i in length(cf_data[[cfs]]$compendiumList):1){
+        coname <- sub("[^\\.]*\\.(.*)","\\1",cf_data[[cfs]]$compendiumList[[i]])
+        if (coname %in% remove.compendiums){
+          cf_data[[cfs]]$compendiumList[[i]] <- NULL
+        }else{
+          cf_data[[cfs]]$compendiumList[[i]] <- gsub("world\\.",paste0(module,"\\."), cf_data[[cfs]]$compendiumList[[i]])
+        }
       }
-    }
-    if (length(cf_data[[cfs]]$compendiums)>0) for (i in length(cf_data[[cfs]]$compendiums):1){
-      coname <- sub("[^\\.]*\\.(.*)","\\1",cf_data[[cfs]]$compendiums[[i]]$code)
-      if (coname %in% remove.compendiums){
-        cf_data[[cfs]]$compendiums[[i]] <- NULL
-      }else{
-        cf_data[[cfs]]$compendiums[[i]]$code <- gsub("world\\.",paste0(module,"\\."), cf_data[[cfs]]$compendiums[[i]]$code)
+      if (length(cf_data[[cfs]]$compendiums)>0) for (i in length(cf_data[[cfs]]$compendiums):1){
+        coname <- sub("[^\\.]*\\.(.*)","\\1",cf_data[[cfs]]$compendiums[[i]]$code)
+        if (coname %in% remove.compendiums){
+          cf_data[[cfs]]$compendiums[[i]] <- NULL
+        }else{
+          cf_data[[cfs]]$compendiums[[i]]$code <- gsub("world\\.",paste0(module,"\\."), cf_data[[cfs]]$compendiums[[i]]$code)
+        }
       }
+      comli <- length(cf_data[[cfs]]$compendiumList)
+      com <- length(cf_data[[cfs]]$compendiums)
+      if (!is.null(unlist(cf_data[[cfs]]$pathToFolder))) direc = unlist(cf_data[[cfs]]$pathToFolder) else direc=""
+      listado.directorios <- listado.directorios %>%
+        bind_rows(data.frame(name=name, 
+                             titulo=titulo, 
+                             #quitar=quitar,
+                             comli=comli,
+                             com=com,
+                             parent=ifelse(is.null(unlist(cf_data[[cfs]]$parent)),"",cf_data[[cfs]]$parent),
+                             pathToFolder=direc, stringsAsFactors = F))
     }
-    comli <- length(cf_data[[cfs]]$compendiumList)
-    com <- length(cf_data[[cfs]]$compendiums)
-    if (!is.null(unlist(cf_data[[cfs]]$pathToFolder))) direc = unlist(cf_data[[cfs]]$pathToFolder) else direc=""
-    listado.directorios <- listado.directorios %>%
-      bind_rows(data.frame(name=name, 
-                           titulo=titulo, 
-                           #quitar=quitar,
-                           comli=comli,
-                           com=com,
-                           parent=ifelse(is.null(unlist(cf_data[[cfs]]$parent)),"",cf_data[[cfs]]$parent),
-                           pathToFolder=direc, stringsAsFactors = F))
-  }
-
-  # Eliminar carpetas vacias
-  # directorios.contenedores <- listado.directorios %>%
-  #   filter(pathToFolder!="") %>%
-  #   distinct(pathToFolder) %>%
-  #   left_join(listado.directorios, by=c("pathToFolder"="name"))
-  # 
-  # directorios.borrar <- listado.directorios %>%
-  #   filter(!((comli>0 & com>0) | name %in% directorios.contenedores$pathToFolder))
-  
-  temp1 <- listado.directorios %>%
-    filter(comli>0 | com>0)
-  
-  temp2 <- listado.directorios %>%
-    filter(name %in% temp1$parent)
-  
-  directorios.mantener <- temp1 %>%
-    bind_rows(temp2)
-  
-  directorios.borrar <- listado.directorios %>%
-    filter(!(name %in% directorios.mantener$name))
-  
-  if (NROW(directorios.borrar)>0) for (i in 1:NROW(directorios.borrar)) cf_data[[directorios.borrar$name[i]]] <- NULL
-
-  replace.in.file("H:/R/fvtt-module-creator/fvtt-module-creator.js", file.3, "@~@" ,toJSON(cf_data, null="null", auto_unbox = T))
-  
+    
+    # Eliminar carpetas vacias
+    # directorios.contenedores <- listado.directorios %>%
+    #   filter(pathToFolder!="") %>%
+    #   distinct(pathToFolder) %>%
+    #   left_join(listado.directorios, by=c("pathToFolder"="name"))
+    # 
+    # directorios.borrar <- listado.directorios %>%
+    #   filter(!((comli>0 & com>0) | name %in% directorios.contenedores$pathToFolder))
+    
+    temp1 <- listado.directorios %>%
+      filter(comli>0 | com>0)
+    
+    temp2 <- listado.directorios %>%
+      filter(name %in% temp1$parent)
+    
+    directorios.mantener <- temp1 %>%
+      bind_rows(temp2)
+    
+    directorios.borrar <- listado.directorios %>%
+      filter(!(name %in% directorios.mantener$name))
+    
+    if (NROW(directorios.borrar)>0) for (i in 1:NROW(directorios.borrar)) cf_data[[directorios.borrar$name[i]]] <- NULL
+    
+    replace.in.file(i.js, file.3, "@~@" ,toJSON(cf_data, null="null", auto_unbox = T))
+  }  
   if (clean.descriptions){
     packs.path <- file.path(foundrydata,"Data/modules",module,"packs")
     cat("Removing descriptions from: ", packs.path,"\n")
-    clean.all.db(packs.path, json_data$system)
+    clean.all.db(packs.path, ifelse(d.core<10, json_data$system, json_data$relationships$system$id))
   }
 }
